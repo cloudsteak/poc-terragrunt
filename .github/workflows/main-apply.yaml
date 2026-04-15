@@ -1,0 +1,90 @@
+name: Main Apply
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: main-apply-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Apply (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - playground
+          - nprod
+          - pre-prod
+          - prod
+
+    environment: ${{ matrix.environment }}
+
+    env:
+      AWS_REGION: eu-central-1
+      AWS_ACCOUNT_ID_ACCOUNT1: ${{ vars.AWS_ACCOUNT_ID_ACCOUNT1 }}
+      AWS_ACCOUNT_ID_ACCOUNT2: ${{ vars.AWS_ACCOUNT_ID_ACCOUNT2 }}
+      AWS_GITHUB_ROLE_NAME: ${{ vars.AWS_GITHUB_ROLE_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve target account
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.environment }}" in
+            playground|nprod)
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT1}"
+              ;;
+            pre-prod|prod)
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT2}"
+              ;;
+            *)
+              echo "Unsupported environment: ${{ matrix.environment }}" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${account_id}" || -z "${AWS_GITHUB_ROLE_NAME}" ]]; then
+            echo "Missing required repository variables: AWS_ACCOUNT_ID_ACCOUNT1, AWS_ACCOUNT_ID_ACCOUNT2, AWS_GITHUB_ROLE_NAME" >&2
+            exit 1
+          fi
+
+          echo "AWS_ACCOUNT_ID=${account_id}" >> "$GITHUB_ENV"
+          echo "AWS_ROLE_TO_ASSUME=arn:aws:iam::${account_id}:role/${AWS_GITHUB_ROLE_NAME}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gh-apply-${{ matrix.environment }}-${{ github.run_id }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install Terragrunt
+        shell: bash
+        run: |
+          set -euo pipefail
+          TG_VERSION="0.67.16"
+          curl -sSfL "https://github.com/gruntwork-io/terragrunt/releases/download/v${TG_VERSION}/terragrunt_linux_amd64" -o terragrunt
+          chmod +x terragrunt
+          sudo mv terragrunt /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Terragrunt apply
+        working-directory: environments/${{ matrix.environment }}/network
+        run: |
+          terragrunt run-all init --terragrunt-non-interactive
+          terragrunt run-all apply --terragrunt-non-interactive
