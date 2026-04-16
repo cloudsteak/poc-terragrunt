@@ -69,6 +69,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Resolve target account
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -129,6 +130,7 @@ jobs:
           echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD:-}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials (OIDC)
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
@@ -136,9 +138,11 @@ jobs:
           role-session-name: gh-apply-${{ matrix.environment }}-${{ github.run_id }}
 
       - name: Setup Terraform
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         uses: hashicorp/setup-terraform@v3
 
       - name: Install Terragrunt
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         shell: bash
         run: |
           set -euo pipefail
@@ -149,7 +153,8 @@ jobs:
           terragrunt --version
 
       - name: Terragrunt apply
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         working-directory: environments/${{ matrix.environment }}/network
         run: |
-          terragrunt run-all init --non-interactive
-          terragrunt run-all apply --non-interactive
+          terragrunt run --all --non-interactive -- init
+          terragrunt run --all --non-interactive -- apply
