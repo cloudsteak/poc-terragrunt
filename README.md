@@ -17,35 +17,35 @@ The implementation is DRY:
 ## Architecture Diagram (Mermaid)
 ```mermaid
 flowchart TB
-  GH[GitHub Repository: cloudsteak/poc-terragrunt]
+  GH["GitHub Repository<br/>cloudsteak/poc-terragrunt"]
 
-  subgraph GHA[GitHub Actions]
-    PR[Workflow: pr-validation.yaml]
-    APPLY[Workflow: main-apply.yaml]
+  subgraph GHA["GitHub Actions"]
+    PR["Workflow<br/>pr-validation.yaml"]
+    APPLY["Workflow<br/>main-apply.yaml"]
   end
 
-  subgraph VARS[Repository Variables]
-    V1[AWS_ACCOUNT_ID_ACCOUNT1]
-    V2[AWS_ACCOUNT_ID_ACCOUNT2]
-    V3[AWS_GITHUB_ROLE_NAME=github-actions-terragrunt]
+  subgraph VARS["Repository Variables"]
+    V1["AWS_ACCOUNT_ID_ACCOUNT1"]
+    V2["AWS_ACCOUNT_ID_ACCOUNT2"]
+    V3["AWS_GITHUB_ROLE_NAME<br/>github-actions-terragrunt"]
   end
 
-  subgraph ACC1[AWS Account 1]
-    OIDC1[OIDC Provider\n token.actions.githubusercontent.com]
-    ROLE1[IAM Role\n github-actions-terragrunt]
-    S31[S3 State Bucket\n tg-state-<account1>-eu-central-1-playground|nprod]
-    DDB1[DynamoDB Lock Table\n tg-locks-<account1>-playground|nprod]
-    KMS1[KMS Keys\n playground / nprod]
-    NET1[VPC + Subnets\n playground, nprod]
+  subgraph ACC1["AWS Account 1"]
+    OIDC1["OIDC Provider<br/>token.actions.githubusercontent.com"]
+    ROLE1["IAM Role<br/>github-actions-terragrunt"]
+    S31["S3 State Bucket<br/>tg-state-account1-eu-central-1-playground-nprod"]
+    DDB1["DynamoDB Lock Table<br/>tg-locks-account1-playground-nprod"]
+    KMS1["KMS Keys<br/>playground and nprod"]
+    NET1["VPC and Subnets<br/>playground and nprod"]
   end
 
-  subgraph ACC2[AWS Account 2]
-    OIDC2[OIDC Provider\n token.actions.githubusercontent.com]
-    ROLE2[IAM Role\n github-actions-terragrunt]
-    S32[S3 State Bucket\n tg-state-<account2>-eu-central-1-pre-prod|prod]
-    DDB2[DynamoDB Lock Table\n tg-locks-<account2>-pre-prod|prod]
-    KMS2[KMS Keys\n pre-prod / prod]
-    NET2[VPC + Subnets\n pre-prod, prod]
+  subgraph ACC2["AWS Account 2"]
+    OIDC2["OIDC Provider<br/>token.actions.githubusercontent.com"]
+    ROLE2["IAM Role<br/>github-actions-terragrunt"]
+    S32["S3 State Bucket<br/>tg-state-account2-eu-central-1-pre-prod-prod"]
+    DDB2["DynamoDB Lock Table<br/>tg-locks-account2-pre-prod-prod"]
+    KMS2["KMS Keys<br/>pre-prod and prod"]
+    NET2["VPC and Subnets<br/>pre-prod and prod"]
   end
 
   GH --> PR
@@ -71,6 +71,20 @@ flowchart TB
   ROLE2 -->|State lock| DDB2
   ROLE2 -->|Encrypt/Decrypt state| KMS2
   ROLE2 -->|Provision| NET2
+
+  classDef github fill:#1f6feb,stroke:#0d3a8a,color:#ffffff,stroke-width:2px;
+  classDef workflow fill:#2ea043,stroke:#1a7f37,color:#ffffff,stroke-width:2px;
+  classDef vars fill:#8250df,stroke:#5a32a3,color:#ffffff,stroke-width:2px;
+  classDef account1 fill:#f0883e,stroke:#9a4a11,color:#111111,stroke-width:2px;
+  classDef account2 fill:#fb8500,stroke:#b35c00,color:#111111,stroke-width:2px;
+  classDef resource fill:#8b949e,stroke:#57606a,color:#ffffff,stroke-width:2px;
+
+  class GH github;
+  class PR,APPLY workflow;
+  class V1,V2,V3 vars;
+  class OIDC1,ROLE1 account1;
+  class OIDC2,ROLE2 account2;
+  class S31,DDB1,KMS1,NET1,S32,DDB2,KMS2,NET2 resource;
 ```
 
 High-level permissions for `github-actions-terragrunt`:
