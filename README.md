@@ -290,15 +290,29 @@ Allowed values:
 If `DEPLOY_ACCOUNT_SCOPE` is not set, default behavior is `both`.
 
 ### 5.2 GitHub Environments
-Create environments:
+Create exactly these environments (names must match workflow matrix values):
 - `playground`
 - `nprod`
 - `pre-prod`
 - `prod`
 
-Recommended governance:
-- `playground`, `nprod`: optional approval
-- `pre-prod`, `prod`: required reviewers and restricted deployment branches
+How to configure each environment:
+1. Open `GitHub -> Repository -> Settings -> Environments -> New environment`.
+2. Create one of the names above.
+3. Set `Deployment branches and tags`:
+- `playground`, `nprod`: allow `main` (or your release branch strategy).
+- `pre-prod`, `prod`: restrict to `main` only.
+4. Set `Required reviewers`:
+- `playground`: optional (0 or 1 reviewer).
+- `nprod`: optional (0 or 1 reviewer).
+- `pre-prod`: required (minimum 1 reviewer).
+- `prod`: required (minimum 2 reviewers recommended).
+5. Enable `Prevent self-review` for `pre-prod` and `prod`.
+6. Save the environment.
+
+Why this matters:
+- The workflow uses `environment: ${{ matrix.environment }}`.
+- Protection rules are enforced per environment name at deployment time.
 
 ### 5.3 Actions Permissions
 Repository Settings -> Actions -> General:
