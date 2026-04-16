@@ -182,7 +182,11 @@ Trust policy template:
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
           "token.actions.githubusercontent.com:sub": [
             "repo:<ORG_OR_USER>/<REPO_NAME>:pull_request",
-            "repo:<ORG_OR_USER>/<REPO_NAME>:ref:refs/heads/main"
+            "repo:<ORG_OR_USER>/<REPO_NAME>:ref:refs/heads/main",
+            "repo:<ORG_OR_USER>/<REPO_NAME>:environment:playground",
+            "repo:<ORG_OR_USER>/<REPO_NAME>:environment:nprod",
+            "repo:<ORG_OR_USER>/<REPO_NAME>:environment:pre-prod",
+            "repo:<ORG_OR_USER>/<REPO_NAME>:environment:prod"
           ]
         }
       }
@@ -195,6 +199,7 @@ Important:
 
 - Do not use wildcard (`*`) in `token.actions.githubusercontent.com:sub`.
 - Keep `aud` under `StringEquals` (no `ForAnyValue`/`ForAllValues` qualifiers).
+- Keep environment subjects in `sub` because `main-apply` uses GitHub Environments.
 
 Then click `Next` button to continue. Also click `Next` on the permissions page since we will add the inline policy in a later step.
 
