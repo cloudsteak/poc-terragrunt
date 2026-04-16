@@ -24,7 +24,7 @@ flowchart TB
     APPLY["Workflow<br/>main-apply.yaml"]
   end
 
-  subgraph VARS["Repository Variables"]
+  subgraph VARS["Repository Secrets"]
     V1["AWS_ACCOUNT_ID_ACCOUNT1"]
     V2["AWS_ACCOUNT_ID_ACCOUNT2"]
     V3["AWS_GITHUB_ROLE_NAME<br/>github-actions-terragrunt"]
@@ -267,13 +267,13 @@ At this point, you have created the role, added and saved the inline policy, and
 
 ## 5. GitHub Repository Configuration
 
-### 5.1 Repository Variables
-Create these repository variables:
+### 5.1 Repository Secrets
+Create these repository secrets:
 - `AWS_ACCOUNT_ID_ACCOUNT1`
 - `AWS_ACCOUNT_ID_ACCOUNT2`
 - `AWS_GITHUB_ROLE_NAME`
 
-Required values:
+Required secret values:
 - `AWS_ACCOUNT_ID_ACCOUNT1` = account for `playground` and `nprod`
 - `AWS_ACCOUNT_ID_ACCOUNT2` = account for `pre-prod` and `prod`
 - `AWS_GITHUB_ROLE_NAME` = the IAM role name you created in section 4.2 (example: `github-actions-terragrunt`)
