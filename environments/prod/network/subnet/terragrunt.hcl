@@ -14,7 +14,7 @@ dependency "vpc" {
     vpc_id = "vpc-00000000000000000"
   }
 
-  mock_outputs_allowed_terraform_commands = ["validate", "plan"]
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
 
 inputs = merge(
