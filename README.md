@@ -518,9 +518,9 @@ terragrunt hcl validate
 
 ```bash
 cd environments/playground/network
-terragrunt run-all init --non-interactive
-terragrunt run-all validate --non-interactive
-terragrunt run-all plan --non-interactive
+terragrunt run --all --non-interactive -- init
+terragrunt run --all --non-interactive -- validate
+terragrunt run --all --non-interactive -- plan
 ```
 
 Repeat for:
@@ -533,7 +533,7 @@ Repeat for:
 
 ```bash
 cd environments/playground/network
-terragrunt run-all apply --non-interactive
+terragrunt run --all --non-interactive -- apply
 ```
 
 Apply order recommendation:
@@ -598,15 +598,15 @@ Per environment matrix:
 - `terraform fmt -check`
 - `tflint`
 - `trivy config`
-- `terragrunt run-all init/validate/plan`
+- `terragrunt run --all -- init/validate/plan`
 
 ## 10.2 Main Apply (`.github/workflows/main-apply.yaml`)
 
 Per environment matrix:
 
 - OIDC auth
-- `terragrunt run-all init`
-- `terragrunt run-all apply`
+- `terragrunt run --all -- init`
+- `terragrunt run --all -- apply`
 
 Use GitHub Environments protection for manual approvals in critical environments.
 
