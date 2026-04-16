@@ -296,18 +296,20 @@ Create exactly these environments (names must match workflow matrix values):
 - `pre-prod`
 - `prod`
 
-How to configure each environment:
+How to configure each environment in the current UI:
 1. Open `GitHub -> Repository -> Settings -> Environments -> New environment`.
-2. Create one of the names above.
-3. Set `Deployment branches and tags`:
-- `playground`, `nprod`: allow `main` (or your release branch strategy).
-- `pre-prod`, `prod`: restrict to `main` only.
-4. Set `Required reviewers`:
-- `playground`: optional (0 or 1 reviewer).
-- `nprod`: optional (0 or 1 reviewer).
-- `pre-prod`: required (minimum 1 reviewer).
-- `prod`: required (minimum 2 reviewers recommended).
-5. Enable `Prevent self-review` for `pre-prod` and `prod`.
+2. Create one environment name from the list above.
+3. Set `Required reviewers`:
+- `playground`: optional
+- `nprod`: optional
+- `pre-prod`: required (at least 1)
+- `prod`: required (at least 2 recommended)
+4. Enable `Prevent self-review` for `pre-prod` and `prod`.
+5. Configure `Deployment branches and tags`:
+- `playground`: select `No restriction`
+- `nprod`: select `Selected branches and tags`, then add branch pattern `main`
+- `pre-prod`: select `Selected branches and tags`, then add branch pattern `main`
+- `prod`: select `Protected branches only` if `main` is protected; otherwise select `Selected branches and tags` and add `main`
 6. Save the environment.
 
 Why this matters:
