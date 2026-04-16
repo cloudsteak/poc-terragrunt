@@ -66,7 +66,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Resolve target account
         if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
