@@ -151,5 +151,5 @@ jobs:
       - name: Terragrunt apply
         working-directory: environments/${{ matrix.environment }}/network
         run: |
-          terragrunt run-all init --terragrunt-non-interactive
-          terragrunt run-all apply --terragrunt-non-interactive
+          terragrunt run-all init --non-interactive
+          terragrunt run-all apply --non-interactive

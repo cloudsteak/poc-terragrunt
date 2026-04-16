@@ -518,9 +518,9 @@ terragrunt hcl validate
 
 ```bash
 cd environments/playground/network
-terragrunt run-all init --terragrunt-non-interactive
-terragrunt run-all validate --terragrunt-non-interactive
-terragrunt run-all plan --terragrunt-non-interactive
+terragrunt run-all init --non-interactive
+terragrunt run-all validate --non-interactive
+terragrunt run-all plan --non-interactive
 ```
 
 Repeat for:
@@ -533,7 +533,7 @@ Repeat for:
 
 ```bash
 cd environments/playground/network
-terragrunt run-all apply --terragrunt-non-interactive
+terragrunt run-all apply --non-interactive
 ```
 
 Apply order recommendation:
