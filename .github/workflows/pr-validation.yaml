@@ -32,6 +32,7 @@ jobs:
       AWS_ACCOUNT_ID_ACCOUNT1: ${{ secrets.AWS_ACCOUNT_ID_ACCOUNT1 }}
       AWS_ACCOUNT_ID_ACCOUNT2: ${{ secrets.AWS_ACCOUNT_ID_ACCOUNT2 }}
       AWS_GITHUB_ROLE_NAME: ${{ secrets.AWS_GITHUB_ROLE_NAME }}
+      DEPLOY_ACCOUNT_SCOPE: ${{ vars.DEPLOY_ACCOUNT_SCOPE }}
 
     steps:
       - name: Checkout
@@ -41,12 +42,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          run_enabled="true"
+          scope_raw="${DEPLOY_ACCOUNT_SCOPE:-both}"
+          scope="$(echo "${scope_raw}" | tr '[:upper:]' '[:lower:]')"
+          environment_account=""
+
           case "${{ matrix.environment }}" in
             playground|nprod)
-              account_id="${AWS_ACCOUNT_ID_ACCOUNT1}"
+              environment_account="1"
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT1:-}"
               ;;
             pre-prod|prod)
-              account_id="${AWS_ACCOUNT_ID_ACCOUNT2}"
+              environment_account="2"
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT2:-}"
               ;;
             *)
               echo "Unsupported environment: ${{ matrix.environment }}" >&2
@@ -54,8 +62,41 @@ jobs:
               ;;
           esac
 
-          if [[ -z "${account_id}" || -z "${AWS_GITHUB_ROLE_NAME}" ]]; then
-            echo "Missing required repository secrets: AWS_ACCOUNT_ID_ACCOUNT1, AWS_ACCOUNT_ID_ACCOUNT2, AWS_GITHUB_ROLE_NAME" >&2
+          case "${scope}" in
+            1|2|both)
+              ;;
+            *)
+              echo "Invalid DEPLOY_ACCOUNT_SCOPE: ${scope_raw}. Allowed values: 1, 2, both." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${AWS_GITHUB_ROLE_NAME}" ]]; then
+            echo "Missing required repository secret: AWS_GITHUB_ROLE_NAME" >&2
+            exit 1
+          fi
+
+          if [[ "${scope}" == "1" && "${environment_account}" == "2" ]]; then
+            run_enabled="false"
+            echo "Skipping ${{ matrix.environment }} because DEPLOY_ACCOUNT_SCOPE=1."
+          fi
+
+          if [[ "${scope}" == "2" && "${environment_account}" == "1" ]]; then
+            run_enabled="false"
+            echo "Skipping ${{ matrix.environment }} because DEPLOY_ACCOUNT_SCOPE=2."
+          fi
+
+          echo "RUN_ENABLED=${run_enabled}" >> "$GITHUB_ENV"
+          if [[ "${run_enabled}" == "false" ]]; then
+            exit 0
+          fi
+
+          if [[ -z "${account_id}" ]]; then
+            if [[ "${environment_account}" == "1" ]]; then
+              echo "Missing required repository secret for account 1 environments: AWS_ACCOUNT_ID_ACCOUNT1" >&2
+            else
+              echo "Missing required repository secret for account 2 environments: AWS_ACCOUNT_ID_ACCOUNT2" >&2
+            fi
             exit 1
           fi
 
@@ -63,6 +104,7 @@ jobs:
           echo "AWS_ROLE_TO_ASSUME=arn:aws:iam::${account_id}:role/${AWS_GITHUB_ROLE_NAME}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials (OIDC)
+        if: env.RUN_ENABLED == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
@@ -70,9 +112,11 @@ jobs:
           role-session-name: gh-pr-${{ matrix.environment }}-${{ github.run_id }}
 
       - name: Setup Terraform
+        if: env.RUN_ENABLED == 'true'
         uses: hashicorp/setup-terraform@v3
 
       - name: Install Terragrunt
+        if: env.RUN_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -83,6 +127,7 @@ jobs:
           terragrunt --version
 
       - name: Install TFLint
+        if: env.RUN_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -90,6 +135,7 @@ jobs:
           tflint --version
 
       - name: Install Trivy
+        if: env.RUN_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -100,21 +146,27 @@ jobs:
           trivy --version
 
       - name: Terragrunt HCL format check
+        if: env.RUN_ENABLED == 'true'
         run: terragrunt hclfmt --terragrunt-check --terragrunt-diff
 
       - name: Terraform format check
+        if: env.RUN_ENABLED == 'true'
         run: terraform fmt -check -recursive
 
       - name: TFLint init
+        if: env.RUN_ENABLED == 'true'
         run: tflint --init
 
       - name: TFLint scan
+        if: env.RUN_ENABLED == 'true'
         run: tflint --recursive
 
       - name: Trivy IaC scan
+        if: env.RUN_ENABLED == 'true'
         run: trivy config --severity HIGH,CRITICAL --exit-code 1 .
 
       - name: Terragrunt plan
+        if: env.RUN_ENABLED == 'true'
         working-directory: environments/${{ matrix.environment }}/network
         run: |
           terragrunt run-all init --terragrunt-non-interactive

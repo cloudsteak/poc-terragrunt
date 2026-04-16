@@ -28,6 +28,7 @@ flowchart TB
     V1["AWS_ACCOUNT_ID_ACCOUNT1"]
     V2["AWS_ACCOUNT_ID_ACCOUNT2"]
     V3["AWS_GITHUB_ROLE_NAME<br/>github-actions-terragrunt"]
+    V4["DEPLOY_ACCOUNT_SCOPE<br/>1 or 2 or both"]
   end
 
   subgraph ACC1["AWS Account 1"]
@@ -81,7 +82,7 @@ flowchart TB
 
   class GH github;
   class PR,APPLY workflow;
-  class V1,V2,V3 vars;
+  class V1,V2,V3,V4 vars;
   class OIDC1,ROLE1 account1;
   class OIDC2,ROLE2 account2;
   class S31,DDB1,KMS1,NET1,S32,DDB2,KMS2,NET2 resource;
@@ -277,6 +278,16 @@ Required secret values:
 - `AWS_ACCOUNT_ID_ACCOUNT1` = account for `playground` and `nprod`
 - `AWS_ACCOUNT_ID_ACCOUNT2` = account for `pre-prod` and `prod`
 - `AWS_GITHUB_ROLE_NAME` = the IAM role name you created in section 4.2 (example: `github-actions-terragrunt`)
+
+Create repository variable:
+- `DEPLOY_ACCOUNT_SCOPE`
+
+Allowed values:
+- `1` = run only account 1 environments (`playground`, `nprod`)
+- `2` = run only account 2 environments (`pre-prod`, `prod`)
+- `both` = run all 4 environments
+
+If `DEPLOY_ACCOUNT_SCOPE` is not set, default behavior is `both`.
 
 ### 5.2 GitHub Environments
 Create environments:
