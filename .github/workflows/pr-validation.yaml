@@ -154,10 +154,19 @@ jobs:
       - name: Install TFLint
         if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           curl -sSfL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
           tflint --version
+
+      - name: Cache TFLint plugins
+        if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ runner.os }}-tflint-plugins-${{ hashFiles('.tflint.hcl') }}
 
       - name: Terragrunt HCL format check
         if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
@@ -169,10 +178,14 @@ jobs:
 
       - name: TFLint init
         if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: tflint --init
 
       - name: TFLint scan
         if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: tflint --recursive
 
       - name: Trivy IaC scan
