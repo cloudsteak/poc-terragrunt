@@ -37,7 +37,6 @@ jobs:
 
   validate:
     needs: validate-scope
-    if: ${{ vars.DEPLOY_ACCOUNT_SCOPE == '' || vars.DEPLOY_ACCOUNT_SCOPE == 'both' || (vars.DEPLOY_ACCOUNT_SCOPE == '1' && matrix.account == '1') || (vars.DEPLOY_ACCOUNT_SCOPE == '2' && matrix.account == '2') }}
     name: Validate (${{ matrix.environment }})
     runs-on: ubuntu-latest
     strategy:
