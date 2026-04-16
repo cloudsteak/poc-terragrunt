@@ -47,7 +47,7 @@ trivy --version
 ```
 
 ## 4. AWS Setup: OIDC for GitHub Actions
-Do this in **both AWS accounts**.
+Complete these steps in this order.
 
 ### 4.1 Create OIDC Identity Provider (once per account)
 - AWS Console -> IAM -> Identity providers -> Add provider
@@ -55,15 +55,23 @@ Do this in **both AWS accounts**.
 - Provider URL: `https://token.actions.githubusercontent.com`
 - Audience: `sts.amazonaws.com`
 
-### 4.2 Create IAM Role for GitHub Actions
-Role name example:
+### 4.2 Create IAM Role with Custom Trust Policy (once per account)
+Create IAM role using **Custom trust policy**.
+
+Use this exact role name in each AWS account:
 - `github-actions-terragrunt`
 
-Trust policy example (replace placeholders):
-- `<AWS_ACCOUNT_ID>`
-- `<ORG_OR_USER>`
-- `<REPO_NAME>`
+Placeholder mapping:
+- `<AWS_ACCOUNT_ID>`: current AWS account where you create the role
+- `<ORG_OR_USER>`: GitHub organization or GitHub user owning the repository
+- `<REPO_NAME>`: GitHub repository name
 
+How to get `<ORG_OR_USER>/<REPO_NAME>`:
+- Repo URL format: `https://github.com/<ORG_OR_USER>/<REPO_NAME>`
+- In this repository: `cloudsteak/poc-terragrunt`
+- Or run: `git remote get-url origin`
+
+Trust policy template:
 ```json
 {
   "Version": "2012-10-17",
@@ -76,9 +84,7 @@ Trust policy example (replace placeholders):
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
           "token.actions.githubusercontent.com:sub": [
             "repo:<ORG_OR_USER>/<REPO_NAME>:pull_request",
             "repo:<ORG_OR_USER>/<REPO_NAME>:ref:refs/heads/main"
@@ -90,16 +96,20 @@ Trust policy example (replace placeholders):
 }
 ```
 
-If you use GitHub Environments protection, you can further restrict with `environment` subject patterns.
+Important:
+- Do not use wildcard (`*`) in `token.actions.githubusercontent.com:sub`.
+- Keep `aud` under `StringEquals` (no `ForAnyValue`/`ForAllValues` qualifiers).
 
-### 4.3 Attach Permission Policy to the Role
-Minimum required scope for this repository:
-- S3 bucket/object permissions for state bucket(s)
-- DynamoDB table permissions for state lock table(s)
-- KMS permissions for state encryption key(s)
+### 4.3 Attach Permissions Policy to That Role
+Use the role named `github-actions-terragrunt` in each account.
+
+Minimum scope for this repository:
+- S3 bucket/object permissions for Terraform state
+- DynamoDB table permissions for state lock
+- KMS permissions for state encryption key
 - EC2 VPC/Subnet CRUD permissions
 
-Example starter policy (tighten resource ARNs in production):
+Starter permissions policy (tighten resources to explicit ARNs in production):
 ```json
 {
   "Version": "2012-10-17",
@@ -169,17 +179,32 @@ Example starter policy (tighten resource ARNs in production):
 }
 ```
 
+AWS Console finalization (per account):
+1. Open the role `github-actions-terragrunt`.
+2. Go to `Permissions`.
+3. Click `Add permissions` -> `Create inline policy`.
+4. Paste the JSON policy above.
+5. Click `Review policy`, give it a name (example: `terragrunt-network-deploy`), then click `Create policy`.
+
+At this point you have:
+- created the role,
+- created the policy,
+- and assigned the policy to the role.
+
 ## 5. GitHub Repository Configuration
 
-## 5.1 Repository Variables
-Create these repo-level variables:
+### 5.1 Repository Variables
+Create these repository variables:
 - `AWS_ACCOUNT_ID_ACCOUNT1`
 - `AWS_ACCOUNT_ID_ACCOUNT2`
 - `AWS_GITHUB_ROLE_NAME`
 
-`AWS_GITHUB_ROLE_NAME` must match the IAM role name created in both accounts.
+Required values:
+- `AWS_ACCOUNT_ID_ACCOUNT1` = account for `playground` and `nprod`
+- `AWS_ACCOUNT_ID_ACCOUNT2` = account for `pre-prod` and `prod`
+- `AWS_GITHUB_ROLE_NAME` = the IAM role name you created in section 4.2 (example: `github-actions-terragrunt`)
 
-## 5.2 GitHub Environments
+### 5.2 GitHub Environments
 Create environments:
 - `playground`
 - `nprod`
@@ -190,7 +215,7 @@ Recommended governance:
 - `playground`, `nprod`: optional approval
 - `pre-prod`, `prod`: required reviewers and restricted deployment branches
 
-## 5.3 Actions Permissions
+### 5.3 Actions Permissions
 Repository Settings -> Actions -> General:
 - Allow GitHub Actions
 - Workflow permissions: `Read repository contents permission`
