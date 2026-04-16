@@ -1,0 +1,6 @@
+locals {
+  environment       = "nprod"
+  aws_region        = "eu-central-1"
+  aws_account_id    = get_env("TG_AWS_ACCOUNT_ID_ACCOUNT1")
+  state_kms_key_arn = get_env("TG_STATE_KMS_KEY_ARN_NPROD")
+}

@@ -1,0 +1,201 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment:
+          - playground
+          - nprod
+          - pre-prod
+          - prod
+
+    env:
+      AWS_REGION: eu-central-1
+      AWS_ACCOUNT_ID_ACCOUNT1: ${{ secrets.AWS_ACCOUNT_ID_ACCOUNT1 }}
+      AWS_ACCOUNT_ID_ACCOUNT2: ${{ secrets.AWS_ACCOUNT_ID_ACCOUNT2 }}
+      AWS_GITHUB_ROLE_NAME: ${{ secrets.AWS_GITHUB_ROLE_NAME }}
+      DEPLOY_ACCOUNT_SCOPE: ${{ vars.DEPLOY_ACCOUNT_SCOPE }}
+      TG_STATE_KMS_KEY_ARN_PLAYGROUND: ${{ secrets.TG_STATE_KMS_KEY_ARN_PLAYGROUND }}
+      TG_STATE_KMS_KEY_ARN_NPROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_NPROD }}
+      TG_STATE_KMS_KEY_ARN_PRE_PROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_PRE_PROD }}
+      TG_STATE_KMS_KEY_ARN_PROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_PROD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve target account
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_enabled="true"
+          scope_raw="${DEPLOY_ACCOUNT_SCOPE:-both}"
+          scope="$(echo "${scope_raw}" | tr '[:upper:]' '[:lower:]')"
+          environment_account=""
+          env_kms_key_arn=""
+
+          case "${{ matrix.environment }}" in
+            playground|nprod)
+              environment_account="1"
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT1:-}"
+              if [[ "${{ matrix.environment }}" == "playground" ]]; then
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PLAYGROUND:-}"
+              else
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_NPROD:-}"
+              fi
+              ;;
+            pre-prod|prod)
+              environment_account="2"
+              account_id="${AWS_ACCOUNT_ID_ACCOUNT2:-}"
+              if [[ "${{ matrix.environment }}" == "pre-prod" ]]; then
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PRE_PROD:-}"
+              else
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PROD:-}"
+              fi
+              ;;
+            *)
+              echo "Unsupported environment: ${{ matrix.environment }}" >&2
+              exit 1
+              ;;
+          esac
+
+          case "${scope}" in
+            1|2|both)
+              ;;
+            *)
+              echo "Invalid DEPLOY_ACCOUNT_SCOPE: ${scope_raw}. Allowed values: 1, 2, both." >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ -z "${AWS_GITHUB_ROLE_NAME}" ]]; then
+            echo "Missing required repository secret: AWS_GITHUB_ROLE_NAME" >&2
+            exit 1
+          fi
+
+          if [[ "${scope}" == "1" && "${environment_account}" == "2" ]]; then
+            run_enabled="false"
+            echo "Skipping ${{ matrix.environment }} because DEPLOY_ACCOUNT_SCOPE=1."
+          fi
+
+          if [[ "${scope}" == "2" && "${environment_account}" == "1" ]]; then
+            run_enabled="false"
+            echo "Skipping ${{ matrix.environment }} because DEPLOY_ACCOUNT_SCOPE=2."
+          fi
+
+          echo "RUN_ENABLED=${run_enabled}" >> "$GITHUB_ENV"
+          if [[ "${run_enabled}" == "false" ]]; then
+            exit 0
+          fi
+
+          if [[ -z "${account_id}" ]]; then
+            if [[ "${environment_account}" == "1" ]]; then
+              echo "Missing required repository secret for account 1 environments: AWS_ACCOUNT_ID_ACCOUNT1" >&2
+            else
+              echo "Missing required repository secret for account 2 environments: AWS_ACCOUNT_ID_ACCOUNT2" >&2
+            fi
+            exit 1
+          fi
+
+          if [[ -z "${env_kms_key_arn}" ]]; then
+            case "${{ matrix.environment }}" in
+              playground) missing_secret="TG_STATE_KMS_KEY_ARN_PLAYGROUND" ;;
+              nprod) missing_secret="TG_STATE_KMS_KEY_ARN_NPROD" ;;
+              pre-prod) missing_secret="TG_STATE_KMS_KEY_ARN_PRE_PROD" ;;
+              prod) missing_secret="TG_STATE_KMS_KEY_ARN_PROD" ;;
+            esac
+            echo "Missing required repository secret for ${{ matrix.environment }}: ${missing_secret}" >&2
+            exit 1
+          fi
+
+          echo "AWS_ACCOUNT_ID=${account_id}" >> "$GITHUB_ENV"
+          echo "AWS_ROLE_TO_ASSUME=arn:aws:iam::${account_id}:role/${AWS_GITHUB_ROLE_NAME}" >> "$GITHUB_ENV"
+          echo "TG_AWS_ACCOUNT_ID_ACCOUNT1=${AWS_ACCOUNT_ID_ACCOUNT1:-}" >> "$GITHUB_ENV"
+          echo "TG_AWS_ACCOUNT_ID_ACCOUNT2=${AWS_ACCOUNT_ID_ACCOUNT2:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PLAYGROUND=${TG_STATE_KMS_KEY_ARN_PLAYGROUND:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_NPROD=${TG_STATE_KMS_KEY_ARN_NPROD:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PRE_PROD=${TG_STATE_KMS_KEY_ARN_PRE_PROD:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD:-}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials (OIDC)
+        if: env.RUN_ENABLED == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gh-pr-${{ matrix.environment }}-${{ github.run_id }}
+
+      - name: Setup Terraform
+        if: env.RUN_ENABLED == 'true'
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Install Terragrunt
+        if: env.RUN_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TG_VERSION="0.67.16"
+          curl -sSfL "https://github.com/gruntwork-io/terragrunt/releases/download/v${TG_VERSION}/terragrunt_linux_amd64" -o terragrunt
+          chmod +x terragrunt
+          sudo mv terragrunt /usr/local/bin/terragrunt
+          terragrunt --version
+
+      - name: Install TFLint
+        if: env.RUN_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+          tflint --version
+
+      - name: Terragrunt HCL format check
+        if: env.RUN_ENABLED == 'true'
+        run: terragrunt hclfmt --terragrunt-check --terragrunt-diff
+
+      - name: Terraform format check
+        if: env.RUN_ENABLED == 'true'
+        run: terraform fmt -check -recursive
+
+      - name: TFLint init
+        if: env.RUN_ENABLED == 'true'
+        run: tflint --init
+
+      - name: TFLint scan
+        if: env.RUN_ENABLED == 'true'
+        run: tflint --recursive
+
+      - name: Trivy IaC scan
+        if: env.RUN_ENABLED == 'true'
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          scan-type: config
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+          hide-progress: true
+
+      - name: Terragrunt plan
+        if: env.RUN_ENABLED == 'true'
+        working-directory: environments/${{ matrix.environment }}/network
+        run: |
+          terragrunt run-all init --terragrunt-non-interactive
+          terragrunt run-all validate --terragrunt-non-interactive
+          terragrunt run-all plan --terragrunt-non-interactive
