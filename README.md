@@ -14,6 +14,71 @@ The implementation is DRY:
 - Shared Terragrunt layer in `environments/_envcommon/*`
 - Environment-specific values only in `environments/<env>/*`
 
+## Architecture Diagram (Mermaid)
+```mermaid
+flowchart TB
+  GH[GitHub Repository: cloudsteak/poc-terragrunt]
+
+  subgraph GHA[GitHub Actions]
+    PR[Workflow: pr-validation.yaml]
+    APPLY[Workflow: main-apply.yaml]
+  end
+
+  subgraph VARS[Repository Variables]
+    V1[AWS_ACCOUNT_ID_ACCOUNT1]
+    V2[AWS_ACCOUNT_ID_ACCOUNT2]
+    V3[AWS_GITHUB_ROLE_NAME=github-actions-terragrunt]
+  end
+
+  subgraph ACC1[AWS Account 1]
+    OIDC1[OIDC Provider\n token.actions.githubusercontent.com]
+    ROLE1[IAM Role\n github-actions-terragrunt]
+    S31[S3 State Bucket\n tg-state-<account1>-eu-central-1-playground|nprod]
+    DDB1[DynamoDB Lock Table\n tg-locks-<account1>-playground|nprod]
+    KMS1[KMS Keys\n playground / nprod]
+    NET1[VPC + Subnets\n playground, nprod]
+  end
+
+  subgraph ACC2[AWS Account 2]
+    OIDC2[OIDC Provider\n token.actions.githubusercontent.com]
+    ROLE2[IAM Role\n github-actions-terragrunt]
+    S32[S3 State Bucket\n tg-state-<account2>-eu-central-1-pre-prod|prod]
+    DDB2[DynamoDB Lock Table\n tg-locks-<account2>-pre-prod|prod]
+    KMS2[KMS Keys\n pre-prod / prod]
+    NET2[VPC + Subnets\n pre-prod, prod]
+  end
+
+  GH --> PR
+  GH --> APPLY
+  GH --> VARS
+  VARS --> PR
+  VARS --> APPLY
+
+  PR -->|OIDC AssumeRoleWithWebIdentity| ROLE1
+  PR -->|OIDC AssumeRoleWithWebIdentity| ROLE2
+  APPLY -->|OIDC AssumeRoleWithWebIdentity| ROLE1
+  APPLY -->|OIDC AssumeRoleWithWebIdentity| ROLE2
+
+  OIDC1 --> ROLE1
+  OIDC2 --> ROLE2
+
+  ROLE1 -->|State access| S31
+  ROLE1 -->|State lock| DDB1
+  ROLE1 -->|Encrypt/Decrypt state| KMS1
+  ROLE1 -->|Provision| NET1
+
+  ROLE2 -->|State access| S32
+  ROLE2 -->|State lock| DDB2
+  ROLE2 -->|Encrypt/Decrypt state| KMS2
+  ROLE2 -->|Provision| NET2
+```
+
+High-level permissions for `github-actions-terragrunt`:
+- Terraform state: S3 bucket/object read-write and bucket security configuration
+- State locking: DynamoDB table create/read/write/update/delete
+- Encryption: KMS encrypt/decrypt/data key operations for state
+- Network provisioning: EC2 VPC/Subnet create/read/update/delete and tagging
+
 ## 2. How Remote State Is Created
 Remote state resources are created by Terragrunt automatically during `init`, driven by `environments/root.hcl`.
 
