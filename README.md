@@ -56,10 +56,7 @@ Complete these steps in this order.
 - Audience: `sts.amazonaws.com`
 
 ### 4.2 Create IAM Role with Custom Trust Policy (once per account)
-Create IAM role using **Custom trust policy**.
-
-Use this exact role name in each AWS account:
-- `github-actions-terragrunt`
+Click `Create role` to start IAM role creation using **Custom trust policy**.
 
 Placeholder mapping:
 - `<AWS_ACCOUNT_ID>`: current AWS account where you create the role
@@ -100,8 +97,14 @@ Important:
 - Do not use wildcard (`*`) in `token.actions.githubusercontent.com:sub`.
 - Keep `aud` under `StringEquals` (no `ForAnyValue`/`ForAllValues` qualifiers).
 
+Then click `Next` button to continue. Also click `Next` on the permissions page since we will add the inline policy in a later step.
+
+Before you save the role, set the name to `github-actions-terragrunt` (or your preferred name, but use the same name in the next steps). Description is optional but recommended (example: `Role for GitHub Actions to deploy Terragrunt network baseline`).
+
+Finally, click `Create role` to save. At this point the role exists and is saved.
+
 ### 4.3 Attach Permissions Policy to That Role
-Use the role named `github-actions-terragrunt` in each account.
+Find the role named `github-actions-terragrunt` in the AWS Console, open it, and go to the `Permissions` tab. Click `Add permissions` -> `Create inline policy` (JSON).
 
 Minimum scope for this repository:
 - S3 bucket/object permissions for Terraform state
@@ -179,17 +182,9 @@ Starter permissions policy (tighten resources to explicit ARNs in production):
 }
 ```
 
-AWS Console finalization (per account):
-1. Open the role `github-actions-terragrunt`.
-2. Go to `Permissions`.
-3. Click `Add permissions` -> `Create inline policy`.
-4. Paste the JSON policy above.
-5. Click `Review policy`, give it a name (example: `terragrunt-network-deploy`), then click `Create policy`.
+Click `Next`, set name `terragrunt-network-deploy`, then click `Create policy`.
 
-At this point you have:
-- created the role,
-- created the policy,
-- and assigned the policy to the role.
+At this point, you have created the role, added and saved the inline policy, and the policy is assigned to the role and ready to use.
 
 ## 5. GitHub Repository Configuration
 
