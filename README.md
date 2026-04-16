@@ -322,7 +322,39 @@ Repository Settings -> Actions -> General:
 - Workflow permissions: `Read repository contents permission`
 - Do not grant broad additional write scopes unless required
 
-## 6. Local Environment Variables (No Hardcoded Sensitive Metadata)
+## 6. Remote Run and Validation (E2E)
+At this point remote execution is possible through GitHub Actions.
+
+### 6.1 Run PR Validation
+1. Push your branch.
+2. Open a pull request to `main`.
+3. Open `GitHub -> Actions -> PR Validation`.
+4. Wait until all expected matrix jobs finish.
+
+Expected behavior by scope:
+- `DEPLOY_ACCOUNT_SCOPE=1`: only `playground` and `nprod` run
+- `DEPLOY_ACCOUNT_SCOPE=2`: only `pre-prod` and `prod` run
+- `DEPLOY_ACCOUNT_SCOPE=both`: all 4 environments run
+
+### 6.2 What to Check in PR Validation
+- `Configure AWS credentials (OIDC)` succeeds in each running environment job.
+- `Terragrunt plan` succeeds in each running environment job.
+- No failed jobs remain in the workflow run.
+
+### 6.3 Run Main Apply
+1. Merge the PR into `main`.
+2. Open `GitHub -> Actions -> Main Apply`.
+3. Approve deployments in GitHub Environments if approval is required.
+4. Wait for all expected jobs to complete.
+
+### 6.4 What to Check After Main Apply
+- `Terragrunt apply` succeeds in each running environment job.
+- In AWS, the expected VPC and subnets exist in the target account and region.
+- State resources exist: S3 bucket and DynamoDB lock table per environment.
+
+Only continue with local execution after this remote E2E path is working.
+
+## 7. Local Environment Variables (No Hardcoded Sensitive Metadata)
 Set locally before Terragrunt commands:
 
 ```bash
@@ -347,16 +379,16 @@ cp scripts/set-env.example.sh scripts/set-env.sh
 source scripts/set-env.sh
 ```
 
-## 7. End-to-End Runbook (Local)
+## 8. End-to-End Runbook (Local)
 
-### 7.1 Format and Validate HCL
+### 8.1 Format and Validate HCL
 ```bash
 cd <repo-root>
 terragrunt hcl format
 terragrunt hcl validate
 ```
 
-### 7.2 Validate and Plan per Environment
+### 8.2 Validate and Plan per Environment
 ```bash
 cd environments/playground/network
 terragrunt run-all init --terragrunt-non-interactive
@@ -369,7 +401,7 @@ Repeat for:
 - `environments/pre-prod/network`
 - `environments/prod/network`
 
-### 7.3 Apply per Environment
+### 8.3 Apply per Environment
 ```bash
 cd environments/playground/network
 terragrunt run-all apply --terragrunt-non-interactive
@@ -381,10 +413,10 @@ Apply order recommendation:
 3. `pre-prod`
 4. `prod`
 
-## 8. End-to-End Verification Checklist
+## 9. End-to-End Verification Checklist
 After apply, verify in AWS Console and CLI.
 
-## 8.1 Verify State Backend
+## 9.1 Verify State Backend
 For each environment/account:
 - S3 bucket exists with expected naming
 - Versioning is enabled
@@ -401,7 +433,7 @@ aws s3api get-bucket-encryption --bucket <state-bucket-name>
 aws dynamodb describe-table --table-name <lock-table-name> --query 'Table.BillingModeSummary.BillingMode'
 ```
 
-## 8.2 Verify Network Resources
+## 9.2 Verify Network Resources
 - VPC exists in correct account and region
 - Subnets exist with expected CIDRs and AZs
 - Tags include `Environment`, `ManagedBy`, `Component`
@@ -412,15 +444,15 @@ aws ec2 describe-vpcs --filters "Name=tag:Environment,Values=playground"
 aws ec2 describe-subnets --filters "Name=tag:Environment,Values=playground"
 ```
 
-## 8.3 Verify GitHub OIDC Runtime
+## 9.3 Verify GitHub OIDC Runtime
 In GitHub Actions run logs:
 - `Configure AWS credentials (OIDC)` step succeeds
 - No static AWS keys are used
 - Correct role ARN is assumed for each matrix environment
 
-## 9. CI/CD Workflows
+## 10. CI/CD Workflows
 
-## 9.1 PR Validation (`.github/workflows/pr-validation.yaml`)
+## 10.1 PR Validation (`.github/workflows/pr-validation.yaml`)
 Per environment matrix:
 - `terragrunt hcl format` check
 - `terraform fmt -check`
@@ -428,7 +460,7 @@ Per environment matrix:
 - `trivy config`
 - `terragrunt run-all init/validate/plan`
 
-## 9.2 Main Apply (`.github/workflows/main-apply.yaml`)
+## 10.2 Main Apply (`.github/workflows/main-apply.yaml`)
 Per environment matrix:
 - OIDC auth
 - `terragrunt run-all init`
@@ -436,29 +468,29 @@ Per environment matrix:
 
 Use GitHub Environments protection for manual approvals in critical environments.
 
-## 10. How to Extend
+## 11. How to Extend
 
-### 10.1 Add New Environment
+### 11.1 Add New Environment
 1. Copy one environment folder under `environments/<new-env>`.
 2. Update `env.hcl` values (region/account env var mappings).
 3. Update VPC/subnet CIDRs.
 4. Add new environment to workflow matrix.
 5. Add GitHub Environment with approval policy.
 
-### 10.2 Add New Module
+### 11.2 Add New Module
 1. Create module under `modules/network/<new-module>`.
 2. Create shared wrapper in `environments/_envcommon/<new-module>.hcl`.
 3. Add live stacks under each environment.
 4. Wire dependencies via Terragrunt `dependency` blocks.
 
-## 11. Security Rules You Must Keep
+## 12. Security Rules You Must Keep
 - Never commit secrets or account IDs directly to repository files.
 - Use OIDC only for CI authentication.
 - Use least privilege IAM policies.
 - Keep production approvals mandatory.
 - Keep state encryption and lock-table controls enabled.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 ### Error: missing `env.hcl` values
 - Ensure required `TG_*` environment variables are exported.
@@ -474,7 +506,7 @@ Use GitHub Environments protection for manual approvals in critical environments
 ### Dependency warnings on `mock_outputs`
 - Expected during HCL validation/plan bootstrap when dependency state is not created yet.
 
-## 13. Final Acceptance Criteria
+## 14. Final Acceptance Criteria
 The solution is considered ready when:
 1. All four environments plan successfully in GitHub PR validation.
 2. Main apply succeeds with OIDC in all four environments.
