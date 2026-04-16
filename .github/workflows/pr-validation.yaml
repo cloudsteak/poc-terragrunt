@@ -33,6 +33,10 @@ jobs:
       AWS_ACCOUNT_ID_ACCOUNT2: ${{ secrets.AWS_ACCOUNT_ID_ACCOUNT2 }}
       AWS_GITHUB_ROLE_NAME: ${{ secrets.AWS_GITHUB_ROLE_NAME }}
       DEPLOY_ACCOUNT_SCOPE: ${{ vars.DEPLOY_ACCOUNT_SCOPE }}
+      TG_STATE_KMS_KEY_ARN_PLAYGROUND: ${{ secrets.TG_STATE_KMS_KEY_ARN_PLAYGROUND }}
+      TG_STATE_KMS_KEY_ARN_NPROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_NPROD }}
+      TG_STATE_KMS_KEY_ARN_PRE_PROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_PRE_PROD }}
+      TG_STATE_KMS_KEY_ARN_PROD: ${{ secrets.TG_STATE_KMS_KEY_ARN_PROD }}
 
     steps:
       - name: Checkout
@@ -46,15 +50,26 @@ jobs:
           scope_raw="${DEPLOY_ACCOUNT_SCOPE:-both}"
           scope="$(echo "${scope_raw}" | tr '[:upper:]' '[:lower:]')"
           environment_account=""
+          env_kms_key_arn=""
 
           case "${{ matrix.environment }}" in
             playground|nprod)
               environment_account="1"
               account_id="${AWS_ACCOUNT_ID_ACCOUNT1:-}"
+              if [[ "${{ matrix.environment }}" == "playground" ]]; then
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PLAYGROUND:-}"
+              else
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_NPROD:-}"
+              fi
               ;;
             pre-prod|prod)
               environment_account="2"
               account_id="${AWS_ACCOUNT_ID_ACCOUNT2:-}"
+              if [[ "${{ matrix.environment }}" == "pre-prod" ]]; then
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PRE_PROD:-}"
+              else
+                env_kms_key_arn="${TG_STATE_KMS_KEY_ARN_PROD:-}"
+              fi
               ;;
             *)
               echo "Unsupported environment: ${{ matrix.environment }}" >&2
@@ -100,8 +115,25 @@ jobs:
             exit 1
           fi
 
+          if [[ -z "${env_kms_key_arn}" ]]; then
+            case "${{ matrix.environment }}" in
+              playground) missing_secret="TG_STATE_KMS_KEY_ARN_PLAYGROUND" ;;
+              nprod) missing_secret="TG_STATE_KMS_KEY_ARN_NPROD" ;;
+              pre-prod) missing_secret="TG_STATE_KMS_KEY_ARN_PRE_PROD" ;;
+              prod) missing_secret="TG_STATE_KMS_KEY_ARN_PROD" ;;
+            esac
+            echo "Missing required repository secret for ${{ matrix.environment }}: ${missing_secret}" >&2
+            exit 1
+          fi
+
           echo "AWS_ACCOUNT_ID=${account_id}" >> "$GITHUB_ENV"
           echo "AWS_ROLE_TO_ASSUME=arn:aws:iam::${account_id}:role/${AWS_GITHUB_ROLE_NAME}" >> "$GITHUB_ENV"
+          echo "TG_AWS_ACCOUNT_ID_ACCOUNT1=${AWS_ACCOUNT_ID_ACCOUNT1:-}" >> "$GITHUB_ENV"
+          echo "TG_AWS_ACCOUNT_ID_ACCOUNT2=${AWS_ACCOUNT_ID_ACCOUNT2:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PLAYGROUND=${TG_STATE_KMS_KEY_ARN_PLAYGROUND:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_NPROD=${TG_STATE_KMS_KEY_ARN_NPROD:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PRE_PROD=${TG_STATE_KMS_KEY_ARN_PRE_PROD:-}" >> "$GITHUB_ENV"
+          echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD:-}" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials (OIDC)
         if: env.RUN_ENABLED == 'true'

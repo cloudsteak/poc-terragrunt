@@ -273,11 +273,63 @@ Create these repository secrets:
 - `AWS_ACCOUNT_ID_ACCOUNT1`
 - `AWS_ACCOUNT_ID_ACCOUNT2`
 - `AWS_GITHUB_ROLE_NAME`
+- `TG_STATE_KMS_KEY_ARN_PLAYGROUND`
+- `TG_STATE_KMS_KEY_ARN_NPROD`
+- `TG_STATE_KMS_KEY_ARN_PRE_PROD`
+- `TG_STATE_KMS_KEY_ARN_PROD`
 
 Required secret values:
 - `AWS_ACCOUNT_ID_ACCOUNT1` = account for `playground` and `nprod`
 - `AWS_ACCOUNT_ID_ACCOUNT2` = account for `pre-prod` and `prod`
 - `AWS_GITHUB_ROLE_NAME` = the IAM role name you created in section 4.2 (example: `github-actions-terragrunt`)
+- `TG_STATE_KMS_KEY_ARN_PLAYGROUND` = KMS key ARN for `playground` remote state encryption
+- `TG_STATE_KMS_KEY_ARN_NPROD` = KMS key ARN for `nprod` remote state encryption
+- `TG_STATE_KMS_KEY_ARN_PRE_PROD` = KMS key ARN for `pre-prod` remote state encryption
+- `TG_STATE_KMS_KEY_ARN_PROD` = KMS key ARN for `prod` remote state encryption
+
+Create and collect KMS key ARNs in **AWS CloudShell** (copy-paste):
+
+CloudShell in **account 1**:
+```bash
+AWS_REGION=eu-central-1
+
+TG_STATE_KMS_KEY_ARN_PLAYGROUND=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - playground" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+TG_STATE_KMS_KEY_ARN_NPROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - nprod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+echo "AWS_ACCOUNT_ID_ACCOUNT1=$(aws sts get-caller-identity --query Account --output text)"
+echo "TG_STATE_KMS_KEY_ARN_PLAYGROUND=${TG_STATE_KMS_KEY_ARN_PLAYGROUND}"
+echo "TG_STATE_KMS_KEY_ARN_NPROD=${TG_STATE_KMS_KEY_ARN_NPROD}"
+```
+
+CloudShell in **account 2**:
+```bash
+AWS_REGION=eu-central-1
+
+TG_STATE_KMS_KEY_ARN_PRE_PROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - pre-prod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+TG_STATE_KMS_KEY_ARN_PROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - prod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+echo "AWS_ACCOUNT_ID_ACCOUNT2=$(aws sts get-caller-identity --query Account --output text)"
+echo "TG_STATE_KMS_KEY_ARN_PRE_PROD=${TG_STATE_KMS_KEY_ARN_PRE_PROD}"
+echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD}"
+```
 
 Create repository variable:
 - `DEPLOY_ACCOUNT_SCOPE`
