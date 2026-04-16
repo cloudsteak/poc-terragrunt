@@ -34,8 +34,6 @@ remote_state {
     skip_bucket_public_access_blocking = false
     skip_bucket_enforced_tls           = false
 
-    dynamodb_table_billing_mode = "PAY_PER_REQUEST"
-
     s3_bucket_tags = {
       Environment = local.environment
       ManagedBy   = "Terragrunt"
@@ -54,17 +52,6 @@ generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
   contents  = <<EOF
-terraform {
-  required_version = ">= 1.8.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.50"
-    }
-  }
-}
-
 provider "aws" {
   region              = "${local.aws_region}"
   allowed_account_ids = ["${local.aws_account_id}"]
