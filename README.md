@@ -266,6 +266,55 @@ Click `Next`, set name `terragrunt-network-deploy`, then click `Create policy`.
 
 At this point, you have created the role, added and saved the inline policy, and the policy is assigned to the role and ready to use.
 
+### 4.4 Create KMS Keys for Terraform State (AWS CloudShell)
+Do this in AWS before configuring GitHub secrets.
+
+Run in **CloudShell in account 1**:
+```bash
+AWS_REGION=eu-central-1
+
+TG_STATE_KMS_KEY_ARN_PLAYGROUND=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - playground" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+TG_STATE_KMS_KEY_ARN_NPROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - nprod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+echo "AWS_ACCOUNT_ID_ACCOUNT1=$(aws sts get-caller-identity --query Account --output text)"
+echo "TG_STATE_KMS_KEY_ARN_PLAYGROUND=${TG_STATE_KMS_KEY_ARN_PLAYGROUND}"
+echo "TG_STATE_KMS_KEY_ARN_NPROD=${TG_STATE_KMS_KEY_ARN_NPROD}"
+```
+
+Run in **CloudShell in account 2**:
+```bash
+AWS_REGION=eu-central-1
+
+TG_STATE_KMS_KEY_ARN_PRE_PROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - pre-prod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+TG_STATE_KMS_KEY_ARN_PROD=$(aws kms create-key \
+  --region "$AWS_REGION" \
+  --description "Terragrunt remote state encryption key - prod" \
+  --query 'KeyMetadata.Arn' \
+  --output text)
+
+echo "AWS_ACCOUNT_ID_ACCOUNT2=$(aws sts get-caller-identity --query Account --output text)"
+echo "TG_STATE_KMS_KEY_ARN_PRE_PROD=${TG_STATE_KMS_KEY_ARN_PRE_PROD}"
+echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD}"
+```
+
+Important:
+- Save all printed values immediately in a secure place (password manager or secure note).
+- Or keep the CloudShell tab open until GitHub secrets are created.
+
 ## 5. GitHub Repository Configuration
 
 ### 5.1 Repository Secrets
@@ -287,49 +336,7 @@ Required secret values:
 - `TG_STATE_KMS_KEY_ARN_PRE_PROD` = KMS key ARN for `pre-prod` remote state encryption
 - `TG_STATE_KMS_KEY_ARN_PROD` = KMS key ARN for `prod` remote state encryption
 
-Create and collect KMS key ARNs in **AWS CloudShell** (copy-paste):
-
-CloudShell in **account 1**:
-```bash
-AWS_REGION=eu-central-1
-
-TG_STATE_KMS_KEY_ARN_PLAYGROUND=$(aws kms create-key \
-  --region "$AWS_REGION" \
-  --description "Terragrunt remote state encryption key - playground" \
-  --query 'KeyMetadata.Arn' \
-  --output text)
-
-TG_STATE_KMS_KEY_ARN_NPROD=$(aws kms create-key \
-  --region "$AWS_REGION" \
-  --description "Terragrunt remote state encryption key - nprod" \
-  --query 'KeyMetadata.Arn' \
-  --output text)
-
-echo "AWS_ACCOUNT_ID_ACCOUNT1=$(aws sts get-caller-identity --query Account --output text)"
-echo "TG_STATE_KMS_KEY_ARN_PLAYGROUND=${TG_STATE_KMS_KEY_ARN_PLAYGROUND}"
-echo "TG_STATE_KMS_KEY_ARN_NPROD=${TG_STATE_KMS_KEY_ARN_NPROD}"
-```
-
-CloudShell in **account 2**:
-```bash
-AWS_REGION=eu-central-1
-
-TG_STATE_KMS_KEY_ARN_PRE_PROD=$(aws kms create-key \
-  --region "$AWS_REGION" \
-  --description "Terragrunt remote state encryption key - pre-prod" \
-  --query 'KeyMetadata.Arn' \
-  --output text)
-
-TG_STATE_KMS_KEY_ARN_PROD=$(aws kms create-key \
-  --region "$AWS_REGION" \
-  --description "Terragrunt remote state encryption key - prod" \
-  --query 'KeyMetadata.Arn' \
-  --output text)
-
-echo "AWS_ACCOUNT_ID_ACCOUNT2=$(aws sts get-caller-identity --query Account --output text)"
-echo "TG_STATE_KMS_KEY_ARN_PRE_PROD=${TG_STATE_KMS_KEY_ARN_PRE_PROD}"
-echo "TG_STATE_KMS_KEY_ARN_PROD=${TG_STATE_KMS_KEY_ARN_PROD}"
-```
+Use the values collected in section **4.4** when creating these secrets.
 
 Create repository variable:
 - `DEPLOY_ACCOUNT_SCOPE`
