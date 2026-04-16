@@ -284,9 +284,12 @@ Starter permissions policy (tighten resources to explicit ARNs in production):
         "ec2:CreateVpc",
         "ec2:DeleteVpc",
         "ec2:DescribeVpcs",
+        "ec2:ModifyVpcAttribute",
+        "ec2:DescribeVpcAttribute",
         "ec2:CreateSubnet",
         "ec2:DeleteSubnet",
         "ec2:DescribeSubnets",
+        "ec2:ModifySubnetAttribute",
         "ec2:CreateTags",
         "ec2:DeleteTags",
         "ec2:DescribeAvailabilityZones"
@@ -515,9 +518,9 @@ terragrunt hcl validate
 
 ```bash
 cd environments/playground/network
-terragrunt run-all init --terragrunt-non-interactive
-terragrunt run-all validate --terragrunt-non-interactive
-terragrunt run-all plan --terragrunt-non-interactive
+terragrunt run --all --non-interactive -- init
+terragrunt run --all --non-interactive -- validate
+terragrunt run --all --non-interactive -- plan
 ```
 
 Repeat for:
@@ -530,7 +533,7 @@ Repeat for:
 
 ```bash
 cd environments/playground/network
-terragrunt run-all apply --terragrunt-non-interactive
+terragrunt run --all --non-interactive -- apply
 ```
 
 Apply order recommendation:
@@ -595,15 +598,15 @@ Per environment matrix:
 - `terraform fmt -check`
 - `tflint`
 - `trivy config`
-- `terragrunt run-all init/validate/plan`
+- `terragrunt run --all -- init/validate/plan`
 
 ## 10.2 Main Apply (`.github/workflows/main-apply.yaml`)
 
 Per environment matrix:
 
 - OIDC auth
-- `terragrunt run-all init`
-- `terragrunt run-all apply`
+- `terragrunt run --all -- init`
+- `terragrunt run --all -- apply`
 
 Use GitHub Environments protection for manual approvals in critical environments.
 
