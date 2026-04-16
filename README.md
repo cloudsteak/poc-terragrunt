@@ -284,9 +284,12 @@ Starter permissions policy (tighten resources to explicit ARNs in production):
         "ec2:CreateVpc",
         "ec2:DeleteVpc",
         "ec2:DescribeVpcs",
+        "ec2:ModifyVpcAttribute",
+        "ec2:DescribeVpcAttribute",
         "ec2:CreateSubnet",
         "ec2:DeleteSubnet",
         "ec2:DescribeSubnets",
+        "ec2:ModifySubnetAttribute",
         "ec2:CreateTags",
         "ec2:DeleteTags",
         "ec2:DescribeAvailabilityZones"
